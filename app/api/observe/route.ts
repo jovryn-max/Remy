@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { OBSERVER_MODEL } from "@/lib/coach/models";
+import { anthropicPrivacyHeaders, logSafe } from "@/lib/privacy/policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export async function POST(req: Request): Promise<Response> {
   }
   const [, mediaType, data] = match;
 
-  const anthropic = new Anthropic({ apiKey: key });
+  const anthropic = new Anthropic({ apiKey: key, defaultHeaders: anthropicPrivacyHeaders() });
   try {
     const resp = await anthropic.messages.create({
       model: OBSERVER_MODEL,
@@ -66,7 +67,7 @@ export async function POST(req: Request): Promise<Response> {
       .trim();
     return Response.json({ note: text || FALLBACK, engine: "claude" });
   } catch (err) {
-    console.error("[observe] error:", err);
+    logSafe("[observe] error", err);
     return Response.json({ note: FALLBACK, engine: "fallback" });
   }
 }

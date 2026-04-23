@@ -44,6 +44,18 @@ lib/
 docs/             Principles, tiers, voice, camera
 ```
 
+## Privacy
+
+Concierge30 retains nothing about you. No database. No server logs of user content. No human-in-the-loop review. No browser storage. See `docs/PRIVACY.md` for the line-by-line commitment; `GET /api/privacy` returns the machine-readable promise.
+
+## Bilingual
+
+The moment the coach hears a language other than English, it switches and stays there. Deepgram STT runs with `detect_language=true`; ElevenLabs Turbo is multilingual; the persona has an explicit language-switch rule. Day One supports the languages Deepgram Nova-2 detects (en, es, fr, de, it, pt, nl, ja, ko, zh, hi, ru).
+
+## The handoff letter
+
+At the end of every visit, the coach writes a one-paragraph letter in your own voice — the thing you hand across a clinic's reception counter so you don't start from zero. Print button on the takeaway screen.
+
 ## What this is not
 
 No database. No returning user recognition. No deployment config. Those are Move 2.

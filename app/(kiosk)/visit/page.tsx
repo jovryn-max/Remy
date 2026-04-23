@@ -13,6 +13,7 @@ import { createCamera } from "@/lib/camera/camera-client";
 import { useVoice } from "@/lib/voice/useVoice";
 import { streamCoach } from "@/lib/coach/stream-client";
 import { assessUrgency } from "@/lib/coach/urgency";
+import { assessIsolation } from "@/lib/coach/isolation";
 
 function vitalsSummary(
   bp?: { systolic: number; diastolic: number; pulse: number },
@@ -138,19 +139,49 @@ export default function VisitPage() {
 
       useSession.getState().setPhase("takeaway");
       setTakeawayVisible(true);
+      // Generate the handoff letter in parallel with the takeaway speech so it's
+      // ready on screen by the time the coach finishes speaking.
+      const stNow = useSession.getState();
+      void fetch("/api/handoff", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          urgency: stNow.urgency?.level ?? "none",
+          vitalsSummary: vitalsSummary(stNow.bp, stNow.weight, stNow.waist),
+          feelingSummary: stNow.feeling || undefined,
+          turns: stNow.turns,
+        }),
+      })
+        .then(async (r) => {
+          if (!r.ok) return;
+          const data = (await r.json()) as { letter: string };
+          if (data.letter) useSession.getState().setHandoffLetter(data.letter);
+        })
+        .catch(() => {});
       await speakPhase("takeaway");
 
       useSession.getState().setPhase("goodbye");
       await speakPhase("goodbye");
-      // Stay on goodbye — clinician can tap "Start over" when the next person sits down.
     };
 
-    run().catch((err) => {
-      console.error("[visit] flow error:", err);
+    run().catch(() => {
+      // Never log the error — it could contain user content in the rejection shape.
     });
+
+    // Privacy: wipe the store when the tab closes or the user navigates away.
+    const wipe = () => {
+      try {
+        useSession.getState().reset();
+      } catch {}
+    };
+    window.addEventListener("beforeunload", wipe);
+    window.addEventListener("pagehide", wipe);
 
     return () => {
       camera.stop();
+      window.removeEventListener("beforeunload", wipe);
+      window.removeEventListener("pagehide", wipe);
+      useSession.getState().reset();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -161,6 +192,8 @@ export default function VisitPage() {
     extras: { vitalsSummary?: string } = {},
   ): Promise<string> {
     const st = useSession.getState();
+    const userTurns = st.turns.filter((t) => t.role === "user").map((t) => t.content);
+    const isolation = assessIsolation(userTurns);
     const { getNext } = await streamCoach({
       phase: phase as never,
       scenario: st.scenario,
@@ -169,6 +202,7 @@ export default function VisitPage() {
       cameraNotes: st.cameraNotes,
       feelingSummary: st.feeling || undefined,
       vitalsSummary: extras.vitalsSummary,
+      isolationSignal: isolation.score >= 0.3 ? isolation : undefined,
     });
     const full = await voice.speakStream(getNext);
     const text = full.startsWith("__INTERRUPT__:") ? "" : full;
@@ -233,34 +267,57 @@ export default function VisitPage() {
         )}
 
         {phase === "takeaway" && takeawayVisible && (
-          <section className="c-paper p-10 max-w-[720px] mx-auto c-fade-up">
-            <div className="text-[12px] tracking-[0.2em] uppercase text-[color:var(--c-ink-faint)] mb-4">
-              What you're taking home
+          <section id="print-root" className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-[1200px] mx-auto c-fade-up">
+            <div className="c-paper p-10">
+              <div className="text-[12px] tracking-[0.2em] uppercase text-[color:var(--c-ink-faint)] mb-4">
+                What you're taking home
+              </div>
+              <div className="flex flex-col gap-3 text-[18px] text-[color:var(--c-ink)]">
+                {session.bp && (
+                  <div>
+                    Blood pressure · <span className="coach-voice text-[24px]">{session.bp.systolic}/{session.bp.diastolic}</span>
+                  </div>
+                )}
+                {typeof session.weight === "number" && (
+                  <div>
+                    Weight · <span className="coach-voice text-[24px]">{session.weight.toFixed(1)} lbs</span>
+                  </div>
+                )}
+                {typeof session.waist === "number" && (
+                  <div>
+                    Waist · <span className="coach-voice text-[24px]">{session.waist.toFixed(1)} in</span>
+                  </div>
+                )}
+                {session.nextStep && (
+                  <div className="mt-4 pt-4 border-t border-[color:var(--c-muted)]">
+                    <div className="text-[12px] tracking-[0.2em] uppercase text-[color:var(--c-ink-faint)] mb-2">
+                      One small thing
+                    </div>
+                    <div className="coach-voice text-[22px] leading-relaxed text-[color:var(--c-ink)]">
+                      {session.nextStep}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex flex-col gap-3 text-[18px] text-[color:var(--c-ink)]">
-              {session.bp && (
-                <div>
-                  Blood pressure · <span className="coach-voice text-[24px]">{session.bp.systolic}/{session.bp.diastolic}</span>
+            <div className="c-paper p-10">
+              <div className="text-[12px] tracking-[0.2em] uppercase text-[color:var(--c-ink-faint)] mb-4">
+                If you take this to a clinic
+              </div>
+              {session.handoffLetter ? (
+                <div className="coach-voice text-[21px] leading-[1.55] text-[color:var(--c-ink)] whitespace-pre-wrap">
+                  {session.handoffLetter}
+                </div>
+              ) : (
+                <div className="text-[15px] text-[color:var(--c-ink-faint)] italic">
+                  writing a short letter in your words…
                 </div>
               )}
-              {typeof session.weight === "number" && (
-                <div>
-                  Weight · <span className="coach-voice text-[24px]">{session.weight.toFixed(1)} lbs</span>
-                </div>
-              )}
-              {typeof session.waist === "number" && (
-                <div>
-                  Waist · <span className="coach-voice text-[24px]">{session.waist.toFixed(1)} in</span>
-                </div>
-              )}
-              {session.nextStep && (
-                <div className="mt-4 pt-4 border-t border-[color:var(--c-muted)]">
-                  <div className="text-[12px] tracking-[0.2em] uppercase text-[color:var(--c-ink-faint)] mb-2">
-                    One small thing
-                  </div>
-                  <div className="coach-voice text-[22px] leading-relaxed text-[color:var(--c-ink)]">
-                    {session.nextStep}
-                  </div>
+              {session.handoffLetter && (
+                <div className="mt-6">
+                  <ChoiceButton variant="quiet" onClick={() => window.print()}>
+                    Print
+                  </ChoiceButton>
                 </div>
               )}
             </div>

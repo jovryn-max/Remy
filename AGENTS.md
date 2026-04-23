@@ -27,3 +27,23 @@ Out of scope: persistence, Tier 1+ returning users, SMS, deployment, real driver
 - No comments describing what code does; only comments for non-obvious why.
 - Do not add features, fallbacks, or validation for cases that can't happen. Trust internal callers.
 - If a feature is not on the Day One list, stop and ask.
+
+## Privacy (load-bearing — do not weaken)
+
+See `docs/PRIVACY.md`. The promise is: **Concierge30 retains nothing about you.**
+
+Every PR must honor this. A PR that does any of the following must be rejected:
+
+- Adds a database client (Prisma, Mongoose, Redis, any ORM or driver) in any form
+- Adds an analytics SDK (PostHog, Segment, GA, Sentry, LogRocket, anything similar)
+- Writes user content to server logs without `logSafe()` from `lib/privacy/policy.ts`
+- Writes anything to disk server-side (`fs.writeFile`, temp files, caches)
+- Writes user content to browser storage (`localStorage`, `sessionStorage`, `IndexedDB`)
+- Renders a `<video>` element with an attached camera stream in the DOM
+- Adds a "user_id" or any identifier in a vendor API call
+- Adds a human-in-the-loop review pipeline (no clinician, QA, or sampling reviewer sees user content, ever)
+- Fetches to any vendor other than Anthropic, ElevenLabs, Deepgram without explicit audit
+
+Before opening a PR, run `grep -rE "(localStorage|sessionStorage|IndexedDB|writeFile|fs\\.)" app lib components` — should return no hits.
+
+`GET /api/privacy` returns the machine-readable promise. Its contents must remain true.

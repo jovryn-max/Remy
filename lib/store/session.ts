@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { BPPhase, BPValue, Scenario } from "@/lib/hardware/interfaces";
 import type { UrgencyAssessment } from "@/lib/coach/urgency";
+import { isForgetCommand } from "@/lib/privacy/policy";
 
 export type VisitPhase =
   | "intro"
@@ -44,7 +45,10 @@ type SessionState = {
   addCameraNote: (n: string) => void;
   addTurn: (t: Turn) => void;
   setNextStep: (s: string) => void;
+  setHandoffLetter: (s: string) => void;
+  forgetLast: () => void;
   reset: () => void;
+  handoffLetter?: string;
 };
 
 const initial: Omit<
@@ -61,6 +65,8 @@ const initial: Omit<
   | "addCameraNote"
   | "addTurn"
   | "setNextStep"
+  | "setHandoffLetter"
+  | "forgetLast"
   | "reset"
 > = {
   scenario: "healthy",
@@ -87,7 +93,26 @@ export const useSession = create<SessionState>((set) => ({
   setCameraActive: (a) => set({ cameraActive: a }),
   addCameraNote: (n) =>
     set((st) => ({ cameraNotes: n ? [...st.cameraNotes, n].slice(-6) : st.cameraNotes })),
-  addTurn: (t) => set((st) => ({ turns: [...st.turns, t] })),
+  addTurn: (t) => {
+    if (t.role === "user" && isForgetCommand(t.content)) {
+      set((st) => {
+        const turns = [...st.turns];
+        if (turns.length && turns[turns.length - 1]?.role === "assistant") turns.pop();
+        if (turns.length && turns[turns.length - 1]?.role === "user") turns.pop();
+        return { turns };
+      });
+      return;
+    }
+    set((st) => ({ turns: [...st.turns, t] }));
+  },
   setNextStep: (s) => set({ nextStep: s }),
+  setHandoffLetter: (s) => set({ handoffLetter: s }),
+  forgetLast: () =>
+    set((st) => {
+      const turns = [...st.turns];
+      if (turns.length && turns[turns.length - 1]?.role === "assistant") turns.pop();
+      if (turns.length && turns[turns.length - 1]?.role === "user") turns.pop();
+      return { turns };
+    }),
   reset: () => set(initial),
 }));

@@ -115,3 +115,28 @@ button,
   box-shadow: var(--c-shadow);
   border-radius: 20px;
 }
+
+/* Print: only the takeaway card + letter leave the screen. */
+@media print {
+  body {
+    background: white !important;
+    color: black;
+  }
+  header,
+  button,
+  [role="button"],
+  .c-caret {
+    display: none !important;
+  }
+  #print-root {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  #print-root .c-paper {
+    box-shadow: none !important;
+    border: 1px solid #ccc;
+    break-inside: avoid;
+  }
+  body > *:not(:has(#print-root)) {
+    display: none !important;
+  }
+}

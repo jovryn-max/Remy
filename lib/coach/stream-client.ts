@@ -11,6 +11,7 @@ export type CoachRequest = {
   cameraNotes?: string[];
   vitalsSummary?: string;
   feelingSummary?: string;
+  isolationSignal?: { score: number; signals: string[] };
 };
 
 /**

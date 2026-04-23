@@ -1,9 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { COACH_SYSTEM, cameraContext } from "@/lib/coach/persona";
+import { COACH_SYSTEM, cameraContext, isolationContext } from "@/lib/coach/persona";
 import { COACH_MODEL } from "@/lib/coach/models";
 import { scriptedLine, type VisitPhase } from "@/lib/coach/fallbackScripts";
 import type { UrgencyLevel } from "@/lib/coach/urgency";
 import type { Scenario } from "@/lib/hardware/interfaces";
+import { anthropicPrivacyHeaders, isForgetCommand, logSafe } from "@/lib/privacy/policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,25 @@ type Body = {
   cameraNotes?: string[];
   vitalsSummary?: string;
   feelingSummary?: string;
+  isolationSignal?: { score: number; signals: string[] };
 };
+
+/**
+ * Enforce "forget that" at the boundary: before sending to the model, drop
+ * the most recent user turn that matches and the assistant turn before it.
+ */
+function honorForget(messages: Message[]): Message[] {
+  const out = [...messages];
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out[i].role === "user" && isForgetCommand(out[i].content)) {
+      out.splice(i, 1);
+      if (i - 1 >= 0 && out[i - 1]?.role === "assistant") out.splice(i - 1, 1);
+      if (i - 2 >= 0 && out[i - 2]?.role === "user") out.splice(i - 2, 1);
+      break;
+    }
+  }
+  return out;
+}
 
 function buildSystem(body: Body): string {
   const bits: string[] = [COACH_SYSTEM];
@@ -32,6 +51,7 @@ function buildSystem(body: Body): string {
     bits.push(`\nURGENCY FLAG: ${body.urgency}. The deterministic module has already assessed this — honor it.`);
   }
   bits.push(cameraContext(body.cameraNotes));
+  bits.push(isolationContext(body.isolationSignal));
   bits.push(`\nCURRENT PHASE: ${body.phase}`);
   return bits.join("");
 }
@@ -64,7 +84,10 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
-  const anthropic = new Anthropic({ apiKey: key });
+  const anthropic = new Anthropic({ apiKey: key, defaultHeaders: anthropicPrivacyHeaders() });
+  const messages = honorForget(
+    body.messages.length > 0 ? body.messages : [{ role: "user", content: phasePrompt(body) }],
+  );
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -73,10 +96,8 @@ export async function POST(req: Request): Promise<Response> {
           model: COACH_MODEL,
           max_tokens: 400,
           system: buildSystem(body),
-          messages:
-            body.messages.length > 0
-              ? body.messages
-              : [{ role: "user", content: phasePrompt(body) }],
+          messages,
+          // No metadata. No user_id. Nothing traceable.
         });
 
         for await (const event of response) {
@@ -89,11 +110,10 @@ export async function POST(req: Request): Promise<Response> {
         }
         controller.close();
       } catch (err) {
-        // Graceful fallback mid-stream: emit the scripted line and close.
         const line = scriptedLine(body.phase, body.scenario, body.urgency);
         controller.enqueue(encodeChunk(line));
         controller.close();
-        console.error("[coach] stream error, served scripted fallback:", err);
+        logSafe("[coach] stream fell back", err);
       }
     },
   });
