@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+/* Concierge30 design tokens — warm, unhurried, paper and ink. */
+:root {
+  --c-bg-top: #f7f1e6;
+  --c-bg-mid: #ece4d4;
+  --c-bg-bottom: #e0d6c2;
+  --c-background: radial-gradient(ellipse at 50% 0%, #f7f1e6 0%, #ece4d4 70%, #e0d6c2 100%);
+
+  --c-ink: #3d342a;
+  --c-ink-soft: #6b5436;
+  --c-ink-faint: #8d7a60;
+
+  --c-accent: #8b6f47;
+  --c-accent-warm: #a0632e;
+  --c-accent-light: #c9a876;
+  --c-muted: #d4c9b8;
+  --c-paper: #f7f1e6;
+
+  --c-focus: rgba(139, 111, 71, 0.35);
+  --c-shadow: 0 1px 0 rgba(61, 52, 42, 0.04), 0 8px 32px -12px rgba(61, 52, 42, 0.12);
+}
+
+@theme inline {
+  --color-ink: var(--c-ink);
+  --color-ink-soft: var(--c-ink-soft);
+  --color-ink-faint: var(--c-ink-faint);
+  --color-accent: var(--c-accent);
+  --color-accent-warm: var(--c-accent-warm);
+  --color-accent-light: var(--c-accent-light);
+  --color-muted: var(--c-muted);
+  --color-paper: var(--c-paper);
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-inter);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  color: var(--c-ink);
+  background: var(--c-background);
+  background-attachment: fixed;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Reading and speaking surfaces use the display face. */
+.coach-voice {
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+}
+
+.coach-voice em {
+  font-style: italic;
+  color: var(--c-ink-soft);
+}
+
+/* Low-friction focus rings that don't shout. */
+:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Touch target sizing — minimum 88px on any interactive kiosk control. */
+button,
+[role="button"] {
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* Animated dot glow for the listen indicator. */
+@keyframes c-pulse-soft {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+@keyframes c-breath {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@keyframes c-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.c-fade-up {
+  animation: c-fade-up 420ms ease-out both;
+}
+
+/* Caption cursor blink for the active word during TTS playback. */
+@keyframes c-caret {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0; }
+}
+
+.c-caret {
+  display: inline-block;
+  width: 0.08em;
+  height: 1em;
+  vertical-align: -0.12em;
+  margin-left: 0.08em;
+  background: currentColor;
+  animation: c-caret 900ms steps(1) infinite;
+}
+
+/* No harsh shadows. Soft paper-on-paper only. */
+.c-paper {
+  background: var(--c-paper);
+  box-shadow: var(--c-shadow);
+  border-radius: 20px;
+}
