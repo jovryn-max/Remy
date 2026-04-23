@@ -78,3 +78,46 @@ export const isolationContext = (
   if (!signal || signal.score < 0.55) return "";
   return `\n\nPRIVATE SIGNAL (do not mention, do not name): this person is likely carrying loneliness right now. When you land on one small thing at the end, weigh it gently toward human connection rather than a private behavior change — a neighbor, a group that meets nearby, someone they already know and haven't talked to in a while. Don't prescribe. Offer one specific, dignified opening.`;
 };
+
+/**
+ * Prior-visit context from a Chair Card. The user just decrypted it with
+ * their PIN at intro. We never pretended to remember — the card told us.
+ * The persona rule is explicit: when you reference something from the card,
+ * say "your card told me" or "last time you said" — do not fake continuity,
+ * do not pretend it was in your memory.
+ */
+export const priorVisitContext = (
+  prior:
+    | {
+        bp?: { systolic: number; diastolic: number; pulse?: number };
+        weight?: number;
+        waist?: number;
+        feeling?: string;
+        nextStep?: string;
+        urgency?: string;
+        mentions?: string[];
+        lang?: string;
+      }
+    | undefined,
+): string => {
+  if (!prior) return "";
+  const bits: string[] = [];
+  if (prior.bp) bits.push(`Last time BP was ${prior.bp.systolic}/${prior.bp.diastolic}${prior.bp.pulse ? ` (pulse ${prior.bp.pulse})` : ""}.`);
+  if (typeof prior.weight === "number") bits.push(`Last time weight was ${prior.weight.toFixed(1)} lbs.`);
+  if (typeof prior.waist === "number") bits.push(`Last time waist was ${prior.waist.toFixed(1)} in.`);
+  if (prior.feeling) bits.push(`Last time they said they felt: "${prior.feeling}".`);
+  if (prior.nextStep) bits.push(`Last time the one small thing was: "${prior.nextStep}".`);
+  if (prior.mentions && prior.mentions.length) bits.push(`They mentioned: ${prior.mentions.slice(0, 3).join("; ")}.`);
+  if (bits.length === 0) return "";
+  return `\n\nPRIOR VISIT (from the card they brought back — you do NOT magically remember this, their card told you; say things like "your card told me" or "last time you said" if you reference any of it, never pretend you remember on your own): ${bits.join(" ")}`;
+};
+
+/**
+ * Wearable context — the last 30 days from the user's watch, borrowed for
+ * this visit only. Use it naturally: a single sentence in conversation is
+ * plenty. Don't list every number. Don't pretend to interpret every signal.
+ */
+export const wearableContext = (note: string | undefined): string => {
+  if (!note || !note.trim()) return "";
+  return `\n\nRECENT DAYS (the person's watch shared this with the chair for this visit only — reference it naturally, don't quote it, don't list metrics): ${note}`;
+};

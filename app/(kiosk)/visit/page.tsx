@@ -14,6 +14,11 @@ import { useVoice } from "@/lib/voice/useVoice";
 import { streamCoach } from "@/lib/coach/stream-client";
 import { assessUrgency } from "@/lib/coach/urgency";
 import { assessIsolation } from "@/lib/coach/isolation";
+import { summarizeWearable } from "@/lib/wearable/summarize";
+import { ImportQr } from "@/components/wearable/ImportQr";
+import { ChairCard } from "@/components/card/ChairCard";
+import { PinPad } from "@/components/card/PinPad";
+import type { CardPayload } from "@/lib/card/card";
 
 function vitalsSummary(
   bp?: { systolic: number; diastolic: number; pulse: number },
@@ -38,6 +43,29 @@ export default function VisitPage() {
   const hardware = useMemo(() => createMockHardware({ scenario: session.scenario }), [session.scenario]);
   const camera = useMemo(() => createCamera(), []);
   const startedRef = useRef(false);
+  const [cardPayloadForPrint, setCardPayloadForPrint] = useState<CardPayload | null>(null);
+  const [pinEntry, setPinEntry] = useState<string>("");
+  const [writingCard, setWritingCard] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Import token — 128 bits, browser-generated, never logged.
+    if (!useSession.getState().importToken) {
+      const buf = new Uint8Array(16);
+      crypto.getRandomValues(buf);
+      const token = Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
+      useSession.getState().setImportToken(token);
+    }
+  }, []);
+
+  const importUrl = useMemo(() => {
+    if (typeof window === "undefined" || !session.importToken) return "";
+    return `${window.location.origin}/health-import?s=${session.importToken}`;
+  }, [session.importToken]);
+
+  function onWearableArrived(snapshot: import("@/lib/wearable/types").WearableSnapshot) {
+    const summary = summarizeWearable(snapshot);
+    useSession.getState().setWearable(snapshot, summary);
+  }
 
   // Observation loop — fire-and-forget, kept alive while the visit is running.
   useEffect(() => {
@@ -203,6 +231,8 @@ export default function VisitPage() {
       feelingSummary: st.feeling || undefined,
       vitalsSummary: extras.vitalsSummary,
       isolationSignal: isolation.score >= 0.3 ? isolation : undefined,
+      priorVisit: st.priorVisit,
+      wearableNote: st.wearableSummary?.note,
     });
     const full = await voice.speakStream(getNext);
     const text = full.startsWith("__INTERRUPT__:") ? "" : full;
@@ -231,6 +261,25 @@ export default function VisitPage() {
         {cameraReason && (
           <div className="text-[13px] text-[color:var(--c-ink-faint)]">
             Camera: {cameraReason}. The visit continues — the coach just won't have that channel.
+          </div>
+        )}
+
+        {(phase === "welcome" || phase === "feeling") &&
+          importUrl &&
+          session.importToken &&
+          !session.wearableSummary && (
+            <div className="flex justify-end">
+              <ImportQr
+                url={importUrl}
+                pollToken={session.importToken}
+                onArrived={onWearableArrived}
+              />
+            </div>
+          )}
+
+        {session.wearableSummary?.note && (phase === "interpret" || phase === "explore-1" || phase === "explore-2" || phase === "explore-3") && (
+          <div className="text-[12px] text-[color:var(--c-ink-faint)] italic max-w-[720px]">
+            The coach is weighing the last 30 days from your watch alongside the chair's reading.
           </div>
         )}
 
@@ -264,6 +313,69 @@ export default function VisitPage() {
               <WaistViz active={true} finalValue={session.waist} />
             </div>
           </section>
+        )}
+
+        {phase === "takeaway" && takeawayVisible && writingCard && !cardPayloadForPrint && (
+          <section className="c-paper p-10 max-w-[520px] mx-auto c-fade-up flex flex-col gap-5 items-center">
+            <div className="text-[12px] tracking-[0.2em] uppercase text-[color:var(--c-ink-faint)]">
+              Optional — make a card
+            </div>
+            <div className="coach-voice text-[24px] leading-tight text-[color:var(--c-ink)] text-center max-w-[420px]">
+              Choose a four-digit PIN. Next time, this card + your PIN is how the chair knows you — not a database.
+            </div>
+            <PinPad pin={pinEntry} onChange={setPinEntry} />
+            <div className="flex gap-3">
+              <ChoiceButton
+                variant="quiet"
+                onClick={() => {
+                  setWritingCard(false);
+                  setPinEntry("");
+                }}
+              >
+                No card
+              </ChoiceButton>
+              <ChoiceButton
+                onClick={() => {
+                  if (pinEntry.length !== 4) return;
+                  const st = useSession.getState();
+                  const payload: CardPayload = {
+                    v: 1,
+                    t: new Date().toISOString(),
+                    visit: {
+                      bp: st.bp
+                        ? { systolic: st.bp.systolic, diastolic: st.bp.diastolic, pulse: st.bp.pulse }
+                        : undefined,
+                      weight: st.weight,
+                      waist: st.waist,
+                      feeling: st.feeling || undefined,
+                      nextStep: st.nextStep,
+                      urgency: st.urgency?.level,
+                      mentions: st.turns
+                        .filter((t) => t.role === "user")
+                        .map((t) => t.content)
+                        .slice(-3),
+                    },
+                  };
+                  setCardPayloadForPrint(payload);
+                  useSession.getState().setCardPin(pinEntry);
+                }}
+                disabled={pinEntry.length !== 4}
+              >
+                Write the card
+              </ChoiceButton>
+            </div>
+            <div className="text-[12px] text-[color:var(--c-ink-faint)] max-w-[380px] text-center">
+              The PIN stays in your head and on the card only — we can't send it anywhere, we don't keep it.
+            </div>
+          </section>
+        )}
+
+        {phase === "takeaway" && takeawayVisible && !writingCard && !cardPayloadForPrint && (
+          <div className="flex justify-center">
+            <ChoiceButton variant="quiet" onClick={() => setWritingCard(true)}>
+              Make a card for next time
+            </ChoiceButton>
+          </div>
         )}
 
         {phase === "takeaway" && takeawayVisible && (
@@ -321,6 +433,15 @@ export default function VisitPage() {
                 </div>
               )}
             </div>
+
+            {cardPayloadForPrint && session.cardPin && (
+              <div className="c-paper p-10 lg:col-span-2 flex flex-col items-center gap-4">
+                <div className="text-[12px] tracking-[0.2em] uppercase text-[color:var(--c-ink-faint)]">
+                  Your card
+                </div>
+                <ChairCard payload={cardPayloadForPrint} pin={session.cardPin} />
+              </div>
+            )}
           </section>
         )}
 

@@ -43,6 +43,19 @@ Concierge30 retains nothing about you. This doc is the line-by-line commitment. 
 - All server routes use `logSafe()` from `lib/privacy/policy.ts`, which replaces any nested value that could contain user content with a shape marker like `<string:37>`. Only these keys survive redaction: `status`, `statusText`, `code`, `name`, `errno`, `cause`, `durationMs`, `model`, `phase`, `engine`.
 - This means even when something breaks, the crash log tells us *that* something broke and roughly where — never what the user said.
 
+### Chair Card (continuity)
+
+- The card is a **user-held, client-side-encrypted blob**. The server has no code path that sees plaintext and no storage that holds ciphertext or PIN.
+- Crypto: **AES-256-GCM** with a key derived via **PBKDF2-SHA256** (210k iterations) from a 4-digit PIN you choose. Per-card random salt and IV. WebCrypto only — never Node crypto running on a server.
+- There is **no recovery path** if you lose the card. By design.
+- Full detail: `docs/CONTINUITY.md`.
+
+### Wearable import (Apple Watch, etc.)
+
+- Your phone sends the snapshot to our server via an ephemeral 128-bit-token relay.
+- The relay is an **in-memory Map** in the Node process, TTL **120 seconds**, **wiped on first successful pull**. No disk. No logging of contents. Restarting the process wipes all pending entries.
+- The chair uses the data for the current visit only; `beforeunload` / navigation / tab close wipe `wearableSnapshot` from the React store.
+
 ## Vendor posture
 
 We use three vendors. Each is invoked with the strongest available privacy posture per request. Account-level policy (ZDR tier on Anthropic, Enterprise ZRM on ElevenLabs, enterprise contract on Deepgram) is a separate lever that must be pulled by whoever operates the deployment.

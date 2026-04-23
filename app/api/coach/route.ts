@@ -1,5 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { COACH_SYSTEM, cameraContext, isolationContext } from "@/lib/coach/persona";
+import {
+  COACH_SYSTEM,
+  cameraContext,
+  isolationContext,
+  priorVisitContext,
+  wearableContext,
+} from "@/lib/coach/persona";
 import { COACH_MODEL } from "@/lib/coach/models";
 import { scriptedLine, type VisitPhase } from "@/lib/coach/fallbackScripts";
 import type { UrgencyLevel } from "@/lib/coach/urgency";
@@ -20,6 +26,17 @@ type Body = {
   vitalsSummary?: string;
   feelingSummary?: string;
   isolationSignal?: { score: number; signals: string[] };
+  priorVisit?: {
+    bp?: { systolic: number; diastolic: number; pulse?: number };
+    weight?: number;
+    waist?: number;
+    feeling?: string;
+    nextStep?: string;
+    urgency?: string;
+    mentions?: string[];
+    lang?: string;
+  };
+  wearableNote?: string;
 };
 
 /**
@@ -52,6 +69,8 @@ function buildSystem(body: Body): string {
   }
   bits.push(cameraContext(body.cameraNotes));
   bits.push(isolationContext(body.isolationSignal));
+  bits.push(priorVisitContext(body.priorVisit));
+  bits.push(wearableContext(body.wearableNote));
   bits.push(`\nCURRENT PHASE: ${body.phase}`);
   return bits.join("");
 }

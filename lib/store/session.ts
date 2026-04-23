@@ -2,6 +2,8 @@ import { create } from "zustand";
 import type { BPPhase, BPValue, Scenario } from "@/lib/hardware/interfaces";
 import type { UrgencyAssessment } from "@/lib/coach/urgency";
 import { isForgetCommand } from "@/lib/privacy/policy";
+import type { CardPayload } from "@/lib/card/card";
+import type { WearableSnapshot, WearableSummary } from "@/lib/wearable/types";
 
 export type VisitPhase =
   | "intro"
@@ -49,6 +51,19 @@ type SessionState = {
   forgetLast: () => void;
   reset: () => void;
   handoffLetter?: string;
+
+  priorVisit?: CardPayload["visit"];
+  setPriorVisit: (p: CardPayload["visit"] | undefined) => void;
+
+  wearableSnapshot?: WearableSnapshot;
+  wearableSummary?: WearableSummary;
+  setWearable: (s: WearableSnapshot, summary: WearableSummary) => void;
+
+  cardPin?: string;
+  setCardPin: (pin: string | undefined) => void;
+
+  importToken?: string;
+  setImportToken: (t: string) => void;
 };
 
 const initial: Omit<
@@ -67,6 +82,10 @@ const initial: Omit<
   | "setNextStep"
   | "setHandoffLetter"
   | "forgetLast"
+  | "setPriorVisit"
+  | "setWearable"
+  | "setCardPin"
+  | "setImportToken"
   | "reset"
 > = {
   scenario: "healthy",
@@ -114,5 +133,9 @@ export const useSession = create<SessionState>((set) => ({
       if (turns.length && turns[turns.length - 1]?.role === "user") turns.pop();
       return { turns };
     }),
+  setPriorVisit: (p) => set({ priorVisit: p }),
+  setWearable: (s, summary) => set({ wearableSnapshot: s, wearableSummary: summary }),
+  setCardPin: (pin) => set({ cardPin: pin }),
+  setImportToken: (t) => set({ importToken: t }),
   reset: () => set(initial),
 }));

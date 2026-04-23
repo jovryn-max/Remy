@@ -12,6 +12,17 @@ export type CoachRequest = {
   vitalsSummary?: string;
   feelingSummary?: string;
   isolationSignal?: { score: number; signals: string[] };
+  priorVisit?: {
+    bp?: { systolic: number; diastolic: number; pulse?: number };
+    weight?: number;
+    waist?: number;
+    feeling?: string;
+    nextStep?: string;
+    urgency?: string;
+    mentions?: string[];
+    lang?: string;
+  };
+  wearableNote?: string;
 };
 
 /**

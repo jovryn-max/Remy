@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Surface, ChoiceButton } from "@/components/kiosk";
 import { ScenarioCard } from "@/components/intro/ScenarioCard";
+import { ShowCardModal } from "@/components/card/ShowCardModal";
 import type { Scenario } from "@/lib/hardware/interfaces";
+import type { CardPayload } from "@/lib/card/card";
 import { useSession } from "@/lib/store/session";
 
 const SCENARIOS: { id: Scenario; title: string; description: string }[] = [
@@ -28,12 +30,21 @@ const SCENARIOS: { id: Scenario; title: string; description: string }[] = [
 export default function IntroPage() {
   const router = useRouter();
   const [selected, setSelected] = useState<Scenario>("healthy");
+  const [showCard, setShowCard] = useState(false);
   const setScenario = useSession((s) => s.setScenario);
+  const setPriorVisit = useSession((s) => s.setPriorVisit);
   const reset = useSession((s) => s.reset);
 
   const begin = () => {
     reset();
     setScenario(selected);
+    router.push("/visit");
+  };
+
+  const beginWithCard = (payload: CardPayload) => {
+    reset();
+    setScenario(selected);
+    setPriorVisit(payload.visit);
     router.push("/visit");
   };
 
@@ -67,12 +78,25 @@ export default function IntroPage() {
 
         <div className="flex gap-4 mt-6">
           <ChoiceButton onClick={begin}>Begin</ChoiceButton>
+          <ChoiceButton variant="quiet" onClick={() => setShowCard(true)}>
+            I have a card
+          </ChoiceButton>
         </div>
 
         <div className="text-center text-[13px] text-[color:var(--c-ink-faint)] max-w-[620px] mt-8 leading-relaxed">
           The camera turns on during the visit so the coach can notice how you're doing. It's for the coach only — the picture isn't shown on screen, isn't saved, and isn't sent anywhere else.
         </div>
       </div>
+
+      {showCard && (
+        <ShowCardModal
+          onCancel={() => setShowCard(false)}
+          onResolved={(payload) => {
+            setShowCard(false);
+            beginWithCard(payload);
+          }}
+        />
+      )}
     </Surface>
   );
 }
