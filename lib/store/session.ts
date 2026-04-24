@@ -4,6 +4,7 @@ import type { UrgencyAssessment } from "@/lib/coach/urgency";
 import { isForgetCommand } from "@/lib/privacy/policy";
 import type { CardPayload } from "@/lib/card/card";
 import type { WearableSnapshot, WearableSummary } from "@/lib/wearable/types";
+import type { CrisisSignal } from "@/lib/coach/crisis";
 
 export type VisitPhase =
   | "intro"
@@ -64,6 +65,9 @@ type SessionState = {
 
   importToken?: string;
   setImportToken: (t: string) => void;
+
+  crisis: CrisisSignal;
+  setCrisis: (s: CrisisSignal) => void;
 };
 
 const initial: Omit<
@@ -86,6 +90,7 @@ const initial: Omit<
   | "setWearable"
   | "setCardPin"
   | "setImportToken"
+  | "setCrisis"
   | "reset"
 > = {
   scenario: "healthy",
@@ -96,6 +101,7 @@ const initial: Omit<
   cameraActive: false,
   cameraNotes: [],
   turns: [],
+  crisis: { level: "none", cues: [], categories: [] },
 };
 
 export const useSession = create<SessionState>((set) => ({
@@ -137,5 +143,6 @@ export const useSession = create<SessionState>((set) => ({
   setWearable: (s, summary) => set({ wearableSnapshot: s, wearableSummary: summary }),
   setCardPin: (pin) => set({ cardPin: pin }),
   setImportToken: (t) => set({ importToken: t }),
+  setCrisis: (s) => set({ crisis: s }),
   reset: () => set(initial),
 }));

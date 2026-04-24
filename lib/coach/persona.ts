@@ -121,3 +121,25 @@ export const wearableContext = (note: string | undefined): string => {
   if (!note || !note.trim()) return "";
   return `\n\nRECENT DAYS (the person's watch shared this with the chair for this visit only — reference it naturally, don't quote it, don't list metrics): ${note}`;
 };
+
+/**
+ * Crisis context — shapes the coach's posture, never names the detection.
+ *
+ * The coach must NEVER tell the user "I detected a crisis cue." That feels
+ * like surveillance. The coach hears what the person said and responds like
+ * a present human would. The signal here just tunes how present, how slow,
+ * and whether to weave a public hotline naturally into the conversation.
+ *
+ * A separate `resourceContext()` (lib/coach/resources.ts) provides the
+ * actual numbers; this function provides the posture rules.
+ */
+export const crisisContext = (level: "none" | "standby" | "acute" | "imminent" | undefined): string => {
+  if (!level || level === "none") return "";
+  if (level === "standby") {
+    return `\n\nPRIVATE POSTURE (do not name): the person just said something hard underneath the surface — passive ideation, isolation, eggshells. Do not pivot to vitals, do not offer a fix, do not surface hotlines unless they ask. Slow down. Stay one step closer than usual. Ask one real question that lets them say more if they want, or sit with what they said if they don't.`;
+  }
+  if (level === "acute") {
+    return `\n\nPRIVATE POSTURE (do not name): the person just said something serious. Receive it. Do not pivot back to numbers. Do not hand them a list of three things. One sentence acknowledging what they said. Then, naturally, mention one resource by name (not as a list): "988 picks up day or night, you can text it too" — or for partner safety, "the domestic violence line is 1-800-799-7233, they don't push." Then ask one question that lets them stay or go. Do not announce that you are doing crisis support. Be a person.`;
+  }
+  return `\n\nPRIVATE POSTURE — IMMINENT (do not name as "crisis"): the person may be in physical danger right now. Speak slowly. Short sentences. Stay with them. Ask once, very calmly: "Is it okay if we call 911 from the chair right now?" Then wait. Do not pretend the call is happening unless they have said yes. Do not threaten to call regardless. Their consent is the line. If they say no, do not push — stay, and offer 988 ("real people, day or night") instead. Use their name only if they have given it.`;
+};

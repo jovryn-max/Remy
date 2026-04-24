@@ -23,6 +23,8 @@ export type CoachRequest = {
     lang?: string;
   };
   wearableNote?: string;
+  crisisLevel?: "none" | "standby" | "acute" | "imminent";
+  crisisCategories?: string[];
 };
 
 /**

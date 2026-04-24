@@ -5,12 +5,15 @@ import {
   isolationContext,
   priorVisitContext,
   wearableContext,
+  crisisContext,
 } from "@/lib/coach/persona";
 import { COACH_MODEL } from "@/lib/coach/models";
 import { scriptedLine, type VisitPhase } from "@/lib/coach/fallbackScripts";
 import type { UrgencyLevel } from "@/lib/coach/urgency";
 import type { Scenario } from "@/lib/hardware/interfaces";
 import { anthropicPrivacyHeaders, isForgetCommand, logSafe } from "@/lib/privacy/policy";
+import type { CrisisCategory } from "@/lib/coach/crisis";
+import { pickResources, resourceContext } from "@/lib/coach/resources";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,6 +40,8 @@ type Body = {
     lang?: string;
   };
   wearableNote?: string;
+  crisisLevel?: "none" | "standby" | "acute" | "imminent";
+  crisisCategories?: string[];
 };
 
 /**
@@ -71,6 +76,12 @@ function buildSystem(body: Body): string {
   bits.push(isolationContext(body.isolationSignal));
   bits.push(priorVisitContext(body.priorVisit));
   bits.push(wearableContext(body.wearableNote));
+  bits.push(crisisContext(body.crisisLevel));
+  if (body.crisisLevel && body.crisisLevel !== "none") {
+    const cats = (body.crisisCategories ?? []) as CrisisCategory[];
+    const resources = pickResources(cats, body.crisisLevel === "imminent");
+    bits.push(resourceContext(resources, body.crisisLevel === "imminent"));
+  }
   bits.push(`\nCURRENT PHASE: ${body.phase}`);
   return bits.join("");
 }

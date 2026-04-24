@@ -14,10 +14,12 @@ import { useVoice } from "@/lib/voice/useVoice";
 import { streamCoach } from "@/lib/coach/stream-client";
 import { assessUrgency } from "@/lib/coach/urgency";
 import { assessIsolation } from "@/lib/coach/isolation";
+import { assessCrisis } from "@/lib/coach/crisis";
 import { summarizeWearable } from "@/lib/wearable/summarize";
 import { ImportQr } from "@/components/wearable/ImportQr";
 import { ChairCard } from "@/components/card/ChairCard";
 import { PinPad } from "@/components/card/PinPad";
+import { CrisisPanel } from "@/components/crisis/CrisisPanel";
 import type { CardPayload } from "@/lib/card/card";
 
 function vitalsSummary(
@@ -222,6 +224,10 @@ export default function VisitPage() {
     const st = useSession.getState();
     const userTurns = st.turns.filter((t) => t.role === "user").map((t) => t.content);
     const isolation = assessIsolation(userTurns);
+    const crisis = assessCrisis(userTurns);
+    if (crisis.level !== st.crisis.level || crisis.cues.length !== st.crisis.cues.length) {
+      useSession.getState().setCrisis(crisis);
+    }
     const { getNext } = await streamCoach({
       phase: phase as never,
       scenario: st.scenario,
@@ -233,6 +239,8 @@ export default function VisitPage() {
       isolationSignal: isolation.score >= 0.3 ? isolation : undefined,
       priorVisit: st.priorVisit,
       wearableNote: st.wearableSummary?.note,
+      crisisLevel: crisis.level,
+      crisisCategories: crisis.categories,
     });
     const full = await voice.speakStream(getNext);
     const text = full.startsWith("__INTERRUPT__:") ? "" : full;
@@ -282,6 +290,13 @@ export default function VisitPage() {
             The coach is weighing the last 30 days from your watch alongside the chair's reading.
           </div>
         )}
+
+        {(session.crisis.level === "acute" || session.crisis.level === "imminent") &&
+          phase !== "takeaway" && (
+            <div className="max-w-[720px] mx-auto w-full c-fade-up">
+              <CrisisPanel signal={session.crisis} variant="compact" />
+            </div>
+          )}
 
         <section className="min-h-[220px]">
           <CoachCaption
@@ -440,6 +455,12 @@ export default function VisitPage() {
                   Your card
                 </div>
                 <ChairCard payload={cardPayloadForPrint} pin={session.cardPin} />
+              </div>
+            )}
+
+            {(session.crisis.level === "acute" || session.crisis.level === "imminent") && (
+              <div className="lg:col-span-2">
+                <CrisisPanel signal={session.crisis} variant="card" />
               </div>
             )}
           </section>

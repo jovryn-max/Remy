@@ -52,6 +52,23 @@ export async function GET(): Promise<Response> {
         diskWrites: false,
         logsContents: false,
       },
+      crisis: {
+        detection: "deterministic phrase scan, runs in the browser via assessCrisis()",
+        usesLLM: false,
+        loopsInHumanOnOurSide: false,
+        whatHappens: [
+          "calm, non-alarming resource panel appears (988, IPV hotline, etc.)",
+          "coach posture shifts (slower, fewer numbers, weaves in one resource by name)",
+          "imminent level: coach asks once, calmly, for explicit consent before referencing a 911 call",
+        ],
+        whatNeverHappens: [
+          "no alert sent to any party on our side",
+          "no transcript shared with any human on our side",
+          "no automatic call to any service",
+          "no logging of the assessment or the cues that triggered it",
+        ],
+        userInControl: true,
+      },
       verifyHow: [
         "GET /api/privacy returns this manifest",
         "grep the source: no fs writes, no db clients, no analytics vendors",

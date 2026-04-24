@@ -56,6 +56,14 @@ Concierge30 retains nothing about you. This doc is the line-by-line commitment. 
 - The relay is an **in-memory Map** in the Node process, TTL **120 seconds**, **wiped on first successful pull**. No disk. No logging of contents. Restarting the process wipes all pending entries.
 - The chair uses the data for the current visit only; `beforeunload` / navigation / tab close wipe `wearableSnapshot` from the React store.
 
+### Crisis cues (suicidality, IPV, etc.)
+
+- Detection runs in the browser via a deterministic phrase scanner — `lib/coach/crisis.ts`. No LLM, no network. Tested.
+- When a cue fires, a calm on-screen resource panel appears (988, IPV hotline, etc.) and the coach's posture shifts to stay present rather than pivot back to vitals.
+- **No human on our side is looped in.** No alert, no ticket, no transcript shared, no logging of the assessment. The user calls a public hotline themselves if they choose; we never observe the call.
+- For imminent danger, the coach asks once, calmly, for the user's explicit consent before referencing a 911 call. Their *no* is final.
+- Full architectural commitment: `docs/CRISIS.md`.
+
 ## Vendor posture
 
 We use three vendors. Each is invoked with the strongest available privacy posture per request. Account-level policy (ZDR tier on Anthropic, Enterprise ZRM on ElevenLabs, enterprise contract on Deepgram) is a separate lever that must be pulled by whoever operates the deployment.
